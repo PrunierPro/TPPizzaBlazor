@@ -1,0 +1,105 @@
+﻿@page "/pizzashop"
+<label for="admin">Mode admin: </label>
+<input type="checkbox" id="admin" name="admin" value="@_admin" @onchange="() => _admin = !_admin"/>
+
+<h3>Pizza</h3>
+
+<div class="container">
+    <div class="row">
+        <button class="oi oi-plus col btn btn-success" @onclick="() => _model = new PizzaEditDto()"> Ajouter une pizza</button> 
+    </div>
+    @if(_model is not null)
+    {
+        <div class="row" style="margin-top: 5px">
+            <EditForm Model="_model">
+                <InputNumber @bind-Value="_model.Id" hidden />
+                <label for="name">Nom: </label><br>
+                <InputText @bind-Value="_model.Name" id="name"/><br>
+                <label for="ingredients">Ingrédients (séparés par virgule): </label><br>
+                <InputText @bind-Value="_model.IngredientsString" id="ingredients" />
+                <label for="price">Prix: </label><br>
+                <InputNumber @bind-Value="_model.Price" id="price" /><br>
+                <label for="image">Image: </label><br>
+                <InputFile @bind-Value="_model.ImageLink" id="image" /><br>
+            </EditForm>
+        </div>
+    }
+    <div class="row" style="margin-top:20px">
+        <div class="col-8">
+            @foreach (Pizza p in fakeDb.GetAll())
+            {
+                <div class="row">
+                    <div class="col">
+                        <img src="@p.ImageLink" alt="@p.Name" class="img-thumbnail" height="150px" width="150px">
+                    </div>
+                    <div class="col-6">
+                        <h4 class="text-warning">@p.Name</h4><br>
+                        @(IngredientsToString(p))
+                    </div>
+                    <div class="col">
+                        <h5 class="text-primary">@p.Price€</h5><br>
+                        <button type="button" class="btn btn-success" @onclick="() => AddToCart(p.Id)"><span class="oi oi-basket"></span></button>
+                        @if (_admin)
+                        {
+                            <button type="button" class="btn btn-outline-primary oi oi-pencil" @onclick="() => _model = new PizzaEditDto(p)"></button><br>
+                            <button type="button" class="btn btn-danger oi oi-x" @onclick="() => { fakeDb.Delete(p.Id); RemoveAllFromCart(_cart.Where(piz => piz.Id == p.Id).ToList());}"></button>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+        <div class="col-4">
+            @foreach(var pizzaGroups in _cart.GroupBy(p => p.Name))
+            {
+                List<Pizza> group = pizzaGroups.ToList();
+                <h5>
+                    <span class="text-warning">@pizzaGroups.Key @(group.Count > 1 ? $"X {group.Count}" : "")</span>&nbsp;&nbsp;&nbsp;<span class="text-primary">@GetTotal(group)€</span>&nbsp;&nbsp;&nbsp;@if (group.Count > 1)
+                    {
+                        <span @onclick="() => RemoveFromCart(group.Last().Id)" class="text-danger oi oi-minus" style="cursor: pointer"></span>
+                    }&nbsp;&nbsp;&nbsp;<span @onclick="() => RemoveAllFromCart(group)" class="text-danger oi oi-x" style="cursor: pointer"></span>
+                </h5>
+            }
+            <h5 class="text-primary">Total: @_total€</h5>
+            @if(_cart.Count > 0)
+            {
+                <button class="btn btn-danger" @onclick="() => _cart.RemoveAll(p => p.Id > 0)"><span class="oi oi-cart">Vider le panier</span></button>
+            }
+        </div>
+    </div>
+</div>
+
+
+@code {
+    public FakeDbPizza fakeDb = new FakeDbPizza();
+    private double _total { get => GetTotal(_cart); }
+    private List<Pizza> _cart = new List<Pizza>();
+    private PizzaEditDto _model;
+    private bool _admin = false;
+
+    private void AddToCart(int id)
+    {
+        _cart.Add(fakeDb.GetById(id));
+    }
+
+    private void RemoveFromCart(int id)
+    {
+        _cart.Remove(fakeDb.GetById(id));
+    }
+
+    private double GetTotal(List<Pizza> list)
+    {
+        double res = 0;
+        list.ForEach(p => res += p.Price);
+        return res;
+    }
+
+    private void RemoveAllFromCart(List<Pizza> group)
+    {
+        group.ForEach(p => _cart.Remove(p));
+    }
+
+    private string IngredientsToString(Pizza p)
+    {
+        return string.Join(", ", p.Ingredients);
+    }
+}
